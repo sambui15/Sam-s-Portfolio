@@ -1,3 +1,98 @@
+-- THE WORLD HEALTH DATABASE: The first database contains comprehensive world health statistics, including data on various countries and a range of key factors for analysis, such as average life expectancy, infant mortality, neonatal mortality, and more. 
+-- Below are examples of queries that can be used to extract and analyze the required information effectively -- 
+
+-- 1/ Retrieve the top 5 countries with the highest life expectancy in any given year. Display the country, year, and life expectancy. --
+ WITH rank_selected AS (
+	SELECT country, year, life_expect, ROW_NUMBER() OVER (PARTITION BY year ORDER BY life_expect DESC) AS row_rank
+    FROM world_health_data)
+SELECT country, year, life_expect
+FROM rank_selected
+WHERE row_rank <=5
+ORDER BY country, year, row_rank DESC;
+
+-- 2/ Find the countries where life expectancy increased by more than 10% between 2000 and 2020. Show the initial and final life expectancy for those years. --
+WITH life_expect_data AS 
+	(SELECT country, year, life_expect
+    FROM world_health_data
+    WHERE year IN (2000,2020)),
+    life_expect_diff as 
+    (SELECT country, 
+		MAX(CASE WHEN year = 2020 THEN life_expect END) AS life_expect_2020,
+        MAX(CASE WHEN year = 2000 THEN life_expect END) AS life_expect_2000
+	FROM life_expect_data
+    	GROUP BY country)
+SELECT country,
+		 ((life_expect_2020 - life_expect_2000)*100/life_expect_2000) AS value_difference
+FROM life_expect_diff
+WHERE  ((life_expect_2020 - life_expect_2000)*100/life_expect_2000) > 0.1;
+
+-- 3/ Rank the countries by health expenditure (health_exp) as a percentage of their average life expectancy for the year 2015. Display the country name, rank, and the calculated percentage. --
+
+WITH health_analysis AS (
+    SELECT 
+        country,
+        health_exp,
+        life_expect,
+        (health_exp / life_expect * 100) AS health_exp_percentage
+    FROM world_health_data
+    WHERE year = 2015
+)
+SELECT 
+    country,
+    RANK() OVER (ORDER BY health_exp_percentage DESC) AS rank,
+    health_exp_percentage
+FROM health_analysis
+ORDER BY rank;
+
+-- 4/ Find the 5 countries with the highest decrease in under_5_mortality between 1999 and 2019. --
+
+WITH mortality_data AS (
+    SELECT 
+        country,
+        MAX(CASE WHEN year = 1999 THEN under_5_mortality END) AS under_5_mortality_1999,
+        MAX(CASE WHEN year = 2019 THEN under_5_mortality END) AS under_5_mortality_2019
+    FROM world_health_data
+    WHERE year IN (1999, 2019)
+    GROUP BY country
+)
+SELECT 
+    country,
+    under_5_mortality_1999,
+    under_5_mortality_2019,
+    (under_5_mortality_1999 - under_5_mortality_2019) AS decrease
+FROM mortality_data
+ORDER BY decrease DESC
+LIMIT 5;
+
+-- 5/ Top 3 Countries with Lowest Neonatal Mortality: For each year, identify the top 3 countries with the lowest neonatal_mortality. Include the year, country, and mortality rate. --
+
+WITH ranked_mortality AS (
+    SELECT 
+        year,
+        country,
+        neonatal_mortality,
+        ROW_NUMBER() OVER (PARTITION BY YEAR ORDER BY neonatal_mortality ASC) AS rank
+    FROM world_health_data
+)
+SELECT 
+    year,
+    country,
+    neonatal_mortality
+FROM ranked_mortality
+WHERE rank <= 3
+ORDER BY year, rank;
+
+-- 6/ Top 5 Countries by Life Expectancy: Retrieve the top 5 countries with the highest life expectancy in any given year. Display the country, year, and life expectancy.  How can I solve this question? --
+
+SELECT country, year, life_expect
+FROM world_health_data
+ORDER BY life_expect DESC
+LIMIT 5;
+
+
+-- DATABASE IN HOSPITAL: This below one is queries for another database and these SQL queries below are designed to extract specific information from a hospital database. For example, they can reveal the percentage of active/inactive accounts, identify doctors with the most to the fewest skills, calculate annual income, track sales over the past year, or retrieve all details of an appointment for a customer with ID = 1. -- 
+-- By utilizing functions like MAX/MIN, TIMESTAMPDIFF, and operations such as subqueries and UNION, these queries manipulate data within a relational database management system to pinpoint the desired information accurately. --
+
 -- 1. This query is written to get customer who have card in the system and show their card by joining card table with customer one together. Left join is used to ensure all cards are shown in case we miss out any customer information in customer table
 
 SELECT cu.id AS customer_id, cu.name, c.card_number

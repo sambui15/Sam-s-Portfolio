@@ -2,8 +2,8 @@
 -- Below are examples of queries that can be used to extract and analyze the required information effectively -- 
 
 -- 1/ Retrieve the top 5 countries with the highest life expectancy in any given year. Display the country, year, and life expectancy. --
- WITH rank_selected AS (
-	SELECT country, year, life_expect, ROW_NUMBER() OVER (PARTITION BY year ORDER BY life_expect DESC) AS row_rank
+WITH rank_selected AS (
+    SELECT country, year, life_expect, ROW_NUMBER() OVER (PARTITION BY year ORDER BY life_expect DESC) AS row_rank
     FROM world_health_data)
 SELECT country, year, life_expect
 FROM rank_selected
@@ -12,12 +12,12 @@ ORDER BY country, year, row_rank DESC;
 
 -- 2/ Find the countries where life expectancy increased by more than 10% between 2000 and 2020. Show the initial and final life expectancy for those years. --
 WITH life_expect_data AS 
-	(SELECT country, year, life_expect
+    (SELECT country, year, life_expect
     FROM world_health_data
     WHERE year IN (2000,2020)),
-    life_expect_diff as 
+    life_expect_diff AS 
     (SELECT country, 
-		MAX(CASE WHEN year = 2020 THEN life_expect END) AS life_expect_2020,
+	MAX(CASE WHEN year = 2020 THEN life_expect END) AS life_expect_2020,
         MAX(CASE WHEN year = 2000 THEN life_expect END) AS life_expect_2000
 	FROM life_expect_data
     	GROUP BY country)
@@ -82,11 +82,16 @@ FROM ranked_mortality
 WHERE rank <= 3
 ORDER BY year, rank;
 
--- 6/ Top 5 Countries by Life Expectancy: Retrieve the top 5 countries with the highest life expectancy in any given year. Display the country, year, and life expectancy.  How can I solve this question? --
+-- 6/ Top 5 Countries by Life Expectancy: Retrieve the top 5 countries with the highest life expectancy in any given year. Display the country, year, and life expectancy. --
 
-SELECT country, year, life_expect
+WITH life_expectancy_rank AS
+	(SELECT country, year, life_expect
+	ROW_NUMBER() OVER (PARTITION BY country, ORDER BY life_expect) AS rank
 FROM world_health_data
-ORDER BY life_expect DESC
+)
+SELECT country, year, life_expect
+FROM life_expectancy_rank
+ORDER BY rank DESC
 LIMIT 5;
 
 

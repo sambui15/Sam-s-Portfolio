@@ -1,4 +1,96 @@
--- THE WORLD HEALTH DATABASE: The first database contains comprehensive world health statistics, including data on various countries and a range of key factors for analysis, such as average life expectancy, infant mortality, neonatal mortality, and more. 
+
+--This SQL script analyzes business performance using the Orders, Product, Customers, and Employee datasets. It answers key questions on quarterly furniture sales, 
+the impact of discounts, top-performing product categories by customer segment, and employee profit contributions. The queries use joins, aggregations, and 
+window functions to generate insights that support data-driven decision-making -- 
+-- 1/ The below SQL query is written to calculate the total sales of furniture products, grouped by each quarter of the year. --
+SELECT 
+    CONCAT('Q', QUARTER(STR_TO_DATE(ORDER_DATE, '%d/%m/%Y')), '-', YEAR(STR_TO_DATE(ORDER_DATE, '%d/%m/%Y'))) AS Quarter_Year, 
+    SUM(CAST(SALES AS DECIMAL(10, 2))) AS Total_Sales 
+FROM 
+    ORDERS 
+Where 
+    PRODUCT_ID LIKE 'FUR%' 
+GROUP BY 
+    YEAR(STR_TO_DATE(ORDER_DATE, '%d/%m/%Y')), QUARTER(STR_TO_DATE(ORDER_DATE, '%d/%m/%Y')), CONCAT('Q', QUARTER(STR_TO_DATE(ORDER_DATE, '%d/%m/%Y')), '-', YEAR(STR_TO_DATE(ORDER_DATE, '%d/%m/%Y')))
+ORDER BY 
+    YEAR(STR_TO_DATE(ORDER_DATE, '%d/%m/%Y')), QUARTER(STR_TO_DATE(ORDER_DATE, '%d/%m/%Y'));
+
+-- 2/ The below query is used to analyze the impact of different discount levels on sales performance across product categories, specifically looking at the 
+number of orders and total profit generated for each discount classification. --
+
+SELECT 
+    p.CATEGORY,
+    CASE 
+        WHEN o.DISCOUNT = 0 THEN 'No Discount'
+        WHEN o.DISCOUNT > 0 AND o.DISCOUNT < 0.2 THEN 'Low Discount'
+        WHEN o.DISCOUNT >= 0.2 AND o.DISCOUNT < 0.5 THEN 'Medium Discount'
+        WHEN o.DISCOUNT >= 0.5 THEN 'High Discount'
+    End as Discount_Level,
+    COUNT(o.ORDER_ID) AS Total_Orders,
+    SUM(o.PROFIT) AS Total_Profit
+FROM 
+    ORDERS o
+JOIN
+    PRODUCT p ON o.PRODUCT_ID = p.ID
+GROUP BY 
+    p.CATEGORY,
+    CASE 
+        WHEN o.DISCOUNT = 0 THEN 'No Discount'
+        WHEN o.DISCOUNT > 0 AND o.DISCOUNT < 0.2 THEN 'Low Discount'
+        WHEN o.DISCOUNT >= 0.2 AND o.DISCOUNT < 0.5 THEN 'Medium Discount'
+        WHEN o.DISCOUNT >= 0.5 THEN 'High Discount'
+    END
+ORDER BY 
+    p.CATEGORY,
+    Discount_Level;
+
+-- 3/ The below query is employed determine the top-performing product categories within each customer segment based on sales and profit, focusing specifically 
+on those categories that rank within the top two for profitability. --
+	
+WITH CategorySalesProfit AS (
+    SELECT c.SEGMENT AS SEGMENT, p.CATEGORY AS CATEGORY,
+        SUM(o.SALES) AS Total_Sales,
+        SUM(o.PROFIT) AS Total_Profit
+    FROM ORDERS o
+    JOIN CUSTOMER c ON o.CUSTOMER_ID = c.ID
+    JOIN PRODUCT p ON o.PRODUCT_ID = p.ID
+    GROUP BY c.SEGMENT, p.CATEGORY
+), RankedCategories AS (
+    SELECT SEGMENT, CATEGORY, Total_Sales, Total_Profit,
+        RANK() OVER (PARTITION BY SEGMENT ORDER BY Total_Profit DESC) AS Profit_Rank,
+        RANK() OVER (PARTITION BY SEGMENT ORDER BY Total_Sales DESC) AS Sales_Rank
+    FROM CategorySalesProfit
+)
+SELECT SEGMENT, CATEGORY, Sales_Rank, Profit_Rank
+FROM RankedCategories
+WHERE Profit_Rank <= 2
+ORDER BY SEGMENT, Profit_Rank;
+
+-- 4/ The below query is to create a report that displays each employee performance across different product categories, showing not only the total profit per 
+category but also what percentage of their total profit each category represents, with the results ordered by the percentage in descending order for each 
+employee. --
+	
+WITH CategoryProfit AS (
+    SELECT ID_EMPLOYEE, p.CATEGORY,
+        SUM(o.PROFIT) AS Total_Profit
+    FROM ORDERS o
+    JOIN PRODUCT p ON o.PRODUCT_ID = p.ID
+    GROUP BY ID_EMPLOYEE, p.CATEGORY
+), EmployeeProfit AS (
+    SELECT ID_EMPLOYEE,
+        SUM(Total_Profit) AS Employee_Profit
+    FROM CategoryProfit
+    GROUP BY ID_EMPLOYEE
+)
+SELECT cp.ID_EMPLOYEE, cp.CATEGORY,
+    ROUND(cp.Total_Profit, 2) AS Rounded_Total_Profit,
+    ROUND((cp.Total_Profit / ep.Employee_Profit) * 100, 2) AS Profit_Percentage
+FROM CategoryProfit cp
+JOIN EmployeeProfit ep ON cp.ID_EMPLOYEE = ep.ID_EMPLOYEE
+ORDER BY cp.ID_EMPLOYEE, Profit_Percentage DESC;
+
+
+--THE WORLD HEALTH DATABASE: The SQL code below is for another dataset and the first database contains comprehensive world health statistics, including data on various countries and a range of key factors for analysis, such as average life expectancy, infant mortality, neonatal mortality, and more. 
 -- Below are examples of queries that can be used to extract and analyze the required information effectively -- 
 
 -- 1/ Retrieve the top 5 countries with the highest life expectancy in any given year. Display the country, year, and life expectancy. --
